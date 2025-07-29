@@ -9,14 +9,13 @@ from dotenv import load_dotenv
 from langchain_openai import OpenAI
 from langchain_experimental.agents import create_pandas_dataframe_agent
 from langchain.agents.agent_types import AgentType
-import io
-import base64
 from datetime import datetime
 import warnings
-from typing import Dict, List, Any, Optional, Tuple
-import json
-import re
+from typing import Dict, List, Any, Tuple
 warnings.filterwarnings('ignore')
+from app.prompt import SUPERVISOR_ANALYST_PROMPT
+import subprocess
+import socket
 
 # Configuration de la page
 st.set_page_config(
@@ -26,222 +25,32 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# CSS personnalisé (identique à votre version)
-st.markdown("""
-<style>
-    /* Variables CSS */
-    :root {
-        --primary-color: #1f77b4;
-        --secondary-color: #ff7f0e;
-        --background-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        --card-background: rgba(255, 255, 255, 0.95);
-        --text-primary: #2c3e50;
-        --text-secondary: #7f8c8d;
-        --border-radius: 12px;
-        --shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-    }
-    
-    /* Masquer les éléments Streamlit par défaut */
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-    header {visibility: hidden;}
-    
-    /* Container principal avec gradient */
-    .main > div {
-        padding-top: 2rem;
-        background: var(--background-gradient);
-        min-height: 100vh;
-    }
-    
-    /* Titre principal */
-    .main-title {
-        text-align: center;
-        color: white;
-        font-size: 3.5rem;
-        font-weight: 700;
-        margin-bottom: 0.5rem;
-        text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
-        font-family: 'Inter', sans-serif;
-    }
-    
-    .subtitle {
-        text-align: center;
-        color: rgba(255, 255, 255, 0.9);
-        font-size: 1.3rem;
-        margin-bottom: 3rem;
-        font-weight: 300;
-    }
-    
-    /* Cards avec glassmorphism */
-    .analytics-card {
-        background: var(--card-background);
-        backdrop-filter: blur(20px);
-        border: 1px solid rgba(255, 255, 255, 0.2);
-        border-radius: var(--border-radius);
-        padding: 2rem;
-        margin: 1rem 0;
-        box-shadow: var(--shadow);
-        transition: transform 0.3s ease, box-shadow 0.3s ease;
-    }
-    
-    .analytics-card:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
-    }
-    
-    /* Zone d'upload personnalisée */
-    .upload-zone {
-        border: 2px dashed var(--primary-color);
-        border-radius: var(--border-radius);
-        padding: 3rem;
-        text-align: center;
-        background: rgba(31, 119, 180, 0.05);
-        transition: all 0.3s ease;
-        margin: 2rem 0;
-    }
-    
-    .upload-zone:hover {
-        border-color: var(--secondary-color);
-        background: rgba(255, 127, 14, 0.05);
-    }
-    
-    /* Zone de chat */
-    .chat-container {
-        background: white;
-        border-radius: var(--border-radius);
-        padding: 1.5rem;
-        margin: 1rem 0;
-        box-shadow: var(--shadow);
-        border-left: 4px solid var(--primary-color);
-    }
-    
-    .user-message {
-        background: linear-gradient(135deg, #667eea, #764ba2);
-        color: white;
-        padding: 1rem;
-        border-radius: 15px 15px 5px 15px;
-        margin: 0.5rem 0;
-        max-width: 80%;
-        margin-left: auto;
-    }
-    
-    .agent-message {
-        background: #f8f9fa;
-        color: var(--text-primary);
-        padding: 1rem;
-        border-radius: 15px 15px 15px 5px;
-        margin: 0.5rem 0;
-        max-width: 80%;
-        border-left: 4px solid var(--primary-color);
-    }
-    
-    /* Métriques personnalisées */
-    .metric-card {
-        background: white;
-        padding: 1.5rem;
-        border-radius: var(--border-radius);
-        text-align: center;
-        box-shadow: var(--shadow);
-        border-top: 4px solid var(--primary-color);
-        transition: transform 0.3s ease;
-    }
-    
-    .metric-card:hover {
-        transform: scale(1.05);
-    }
-    
-    .metric-value {
-        font-size: 2.5rem;
-        font-weight: 700;
-        color: var(--primary-color);
-        margin: 0;
-    }
-    
-    .metric-label {
-        font-size: 1rem;
-        color: var(--text-secondary);
-        margin-top: 0.5rem;
-    }
-    
-    /* Buttons personnalisés */
-    .stButton > button {
-        background: linear-gradient(135deg, #667eea, #764ba2);
-        color: white;
-        border: none;
-        border-radius: 25px;
-        padding: 0.75rem 2rem;
-        font-weight: 600;
-        transition: all 0.3s ease;
-        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
-    }
-    
-    .stButton > button:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
-    }
-    
-    /* Input personnalisés */
-    .stTextInput > div > div > input {
-        border-radius: 25px;
-        border: 2px solid #e1e8ed;
-        padding: 0.75rem 1rem;
-        font-size: 1rem;
-        transition: border-color 0.3s ease;
-    }
-    
-    .stTextInput > div > div > input:focus {
-        border-color: var(--primary-color);
-        box-shadow: 0 0 0 3px rgba(31, 119, 180, 0.1);
-    }
-    
-    /* Animation de chargement */
-    .loading-animation {
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        margin: 2rem 0;
-    }
-    
-    .loading-dot {
-        width: 12px;
-        height: 12px;
-        border-radius: 50%;
-        background: var(--primary-color);
-        margin: 0 4px;
-        animation: loading 1.4s infinite ease-in-out;
-    }
-    
-    .loading-dot:nth-child(1) { animation-delay: -0.32s; }
-    .loading-dot:nth-child(2) { animation-delay: -0.16s; }
-    
-    @keyframes loading {
-        0%, 80%, 100% { transform: scale(0); }
-        40% { transform: scale(1); }
-    }
-    
-    /* Responsive design */
-    @media (max-width: 768px) {
-        .main-title { font-size: 2.5rem; }
-        .subtitle { font-size: 1.1rem; }
-        .analytics-card { padding: 1rem; }
-    }
 
-    /* Style pour les agents */
-    .agent-indicator {
-        display: inline-block;
-        padding: 0.2rem 0.5rem;
-        border-radius: 12px;
-        font-size: 0.8rem;
-        font-weight: 600;
-        margin-right: 0.5rem;
-    }
-    
-    .agent-profiling { background: #e8f4fd; color: #1976d2; }
-    .agent-statistical { background: #f3e5f5; color: #7b1fa2; }
-    .agent-visualization { background: #e8f5e8; color: #388e3c; }
-    .agent-transformation { background: #fff3e0; color: #f57c00; }
-</style>
-""", unsafe_allow_html=True)
+
+# Vérifie si l'API FastAPI est déjà en cours d'exécution sur le port donné
+def is_api_running(host="127.0.0.1", port=8000):
+    """Vérifie si l'API FastAPI est déjà en cours d'exécution sur le port donné."""
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.settimeout(0.5)
+        try:
+            sock.connect((host, port))
+            return True
+        except Exception:
+            return False
+
+# Démarrage automatique de l'API FastAPI si non lancée
+if not is_api_running():
+    try:
+        subprocess.Popen([
+            "uvicorn", "api.main:app", "--host", "127.0.0.1", "--port", "8000", "--reload"
+        ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        import time
+        time.sleep(2)  # Laisse le temps à l'API de démarrer
+    except Exception as e:
+        st.warning(f"Impossible de démarrer l'API FastAPI automatiquement : {e}")
+# CSS personnalisé (identique à votre version)
+with open(os.path.join(os.path.dirname(__file__), "style.css")) as f:
+    st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
 
 # Chargement des variables d'environnement
 load_dotenv()
@@ -293,6 +102,22 @@ class BaseAgent:
         except Exception as e:
             return f"⚠️ Erreur dans {self.agent_name}: {str(e)[:200]}..."
 
+
+
+class SupervisorAnalystAgent(BaseAgent):
+    """Agent superviseur qui synthétise et valide les analyses des autres agents"""
+    def __init__(self, dataframe: pd.DataFrame, openai_api_key: str):
+        super().__init__(dataframe, openai_api_key)
+        self.agent = self._create_pandas_agent(SUPERVISOR_ANALYST_PROMPT)
+
+    def synthesize_and_validate(self, analyses: dict) -> str:
+        """Synthétise et valide les résultats des autres agents"""
+        # Construit un message structuré à partir des résultats des autres agents
+        message = "Voici les résultats des analyses spécialisées :\n"
+        for agent_name, result in analyses.items():
+            message += f"\n---\n[{agent_name.upper()}]\n{result}\n"
+        message += "\nMerci de synthétiser, valider et formuler des recommandations globales."
+        return self._safe_execute(message)
 
 class DataProfilingAgent(BaseAgent):
     """Agent spécialisé dans l'analyse de qualité et profiling des données"""
@@ -475,7 +300,6 @@ class VisualizationAgent(BaseAgent):
         
         # Médiane vs Moyenne
         if len(numeric_cols) > 0:
-            col = numeric_cols[0]
             medians = [self.df[col].median() for col in numeric_cols[:8]]
             fig.add_trace(go.Scatter(x=means[:len(medians)], y=medians, 
                                    mode='markers', name="Médiane vs Moyenne"), row=2, col=2)
@@ -678,41 +502,48 @@ class AgentOrchestrator:
             'profiling': DataProfilingAgent(dataframe, openai_api_key),
             'statistical': StatisticalAnalysisAgent(dataframe, openai_api_key),
             'visualization': VisualizationAgent(dataframe, openai_api_key),
-            'transformation': DataTransformationAgent(dataframe, openai_api_key)
+            'transformation': DataTransformationAgent(dataframe, openai_api_key),
+            'supervisor': SupervisorAnalystAgent(dataframe, openai_api_key)
         }
-    
+        self.intent_llm = OpenAI(api_key=openai_api_key, temperature=0.0, max_tokens=10)
+
     def classify_intent(self, question: str) -> str:
-        """Classifie l'intention de la question pour router vers le bon agent"""
+        """Classifie l'intention de la question pour router vers le bon agent, via LLM (LangChain)"""
+        prompt = (
+            "Tu es un classificateur d'intention pour un assistant d'analyse de données. "
+            "Voici les intentions possibles : profiling, statistical, visualization, transformation, supervisor. "
+            "Pour la question suivante, réponds uniquement par le mot-clé correspondant à l'intention la plus appropriée (rien d'autre) :\n"
+            f"Question : {question}\nIntention : "
+        )
+        try:
+            intent = self.intent_llm(prompt).strip().lower()
+            if intent in self.agents:
+                return intent
+        except Exception:
+            pass
+        # Fallback: ancienne logique mots-clés
         question_lower = question.lower()
-        
-        # Mots-clés pour la visualisation
         viz_keywords = ['graphique', 'visualis', 'chart', 'plot', 'graph', 'affich', 'montre', 'dessine']
         if any(keyword in question_lower for keyword in viz_keywords):
             return 'visualization'
-        
-        # Mots-clés pour les statistiques
         stat_keywords = ['corrélation', 'moyenne', 'médiane', 'écart', 'distribution', 'test', 'significatif', 'variance', 'régression']
         if any(keyword in question_lower for keyword in stat_keywords):
             return 'statistical'
-        
-        # Mots-clés pour le profiling
         profiling_keywords = ['qualité', 'profil', 'résumé', 'aperçu', 'manquant', 'aberrant', 'complet', 'overview']
         if any(keyword in question_lower for keyword in profiling_keywords):
             return 'profiling'
-        
-        # Mots-clés pour la transformation
         transform_keywords = ['nettoyer', 'transformer', 'créer', 'modifier', 'encoder', 'normaliser']
         if any(keyword in question_lower for keyword in transform_keywords):
             return 'transformation'
-        
-        # Par défaut, utilise l'agent de profiling pour les questions générales
+        supervisor_keywords = ['synthèse', 'valider', 'recommandation globale', 'superviser', 'cohérence', 'conclusion', 'expert final']
+        if any(keyword in question_lower for keyword in supervisor_keywords):
+            return 'supervisor'
         return 'profiling'
     
     def process_question(self, question: str) -> Dict[str, Any]:
         """Traite une question en la routant vers le bon agent"""
         intent = self.classify_intent(question)
         agent = self.agents[intent]
-        
         try:
             if intent == 'visualization':
                 result = agent.recommend_visualizations()
@@ -720,6 +551,26 @@ class AgentOrchestrator:
                     'agent': intent,
                     'response': result['recommendations'],
                     'visualizations': result['visualizations'],
+                    'success': True
+                }
+            elif intent == 'supervisor':
+                # Appelle tous les autres agents et synthétise les résultats
+                analyses = {}
+                for key in ['profiling', 'statistical', 'visualization', 'transformation']:
+                    ag = self.agents[key]
+                    if key == 'profiling':
+                        analyses[key] = ag.profile_data()
+                    elif key == 'statistical':
+                        analyses[key] = ag.descriptive_analysis()
+                    elif key == 'visualization':
+                        analyses[key] = ag.recommend_visualizations()['recommendations']
+                    elif key == 'transformation':
+                        analyses[key] = ag.suggest_transformations()
+                response = agent.synthesize_and_validate(analyses)
+                return {
+                    'agent': intent,
+                    'response': response,
+                    'visualizations': [],
                     'success': True
                 }
             else:
@@ -734,14 +585,12 @@ class AgentOrchestrator:
                 else:
                     # Utilise la méthode générique d'analyse
                     response = agent._safe_execute(question)
-                
                 return {
                     'agent': intent,
                     'response': response,
                     'visualizations': [],
                     'success': True
                 }
-                
         except Exception as e:
             return {
                 'agent': intent,
@@ -834,26 +683,22 @@ def display_data_overview(df):
     st.markdown('</div>', unsafe_allow_html=True)
 
 
-def display_agent_response(agent_type: str, response: str, visualizations: List = None):
+def display_agent_response(agent_type: str, response: str, visualizations: List = None, history_index: int = 0):
     """Affiche la réponse d'un agent avec style personnalisé"""
-    
     agent_styles = {
         'profiling': 'agent-profiling',
         'statistical': 'agent-statistical', 
         'visualization': 'agent-visualization',
         'transformation': 'agent-transformation'
     }
-    
     agent_names = {
         'profiling': '🔍 Agent Profiling',
         'statistical': '📊 Agent Statistique',
         'visualization': '📈 Agent Visualisation', 
         'transformation': '🔧 Agent Transformation'
     }
-    
     style_class = agent_styles.get(agent_type, 'agent-profiling')
     agent_name = agent_names.get(agent_type, f'🤖 Agent {agent_type}')
-    
     st.markdown(f"""
     <div class="chat-container">
         <div class="agent-message">
@@ -862,14 +707,13 @@ def display_agent_response(agent_type: str, response: str, visualizations: List 
         </div>
     </div>
     """, unsafe_allow_html=True)
-    
     # Afficher les visualisations si disponibles
     if visualizations:
         st.markdown("### 📊 Visualisations Générées")
         tabs = st.tabs([viz[0] for viz in visualizations])
         for i, (title, fig) in enumerate(visualizations):
             with tabs[i]:
-                unique_key = f"{agent_type}_{title}_{i}"
+                unique_key = f"{agent_type}_{title}_{i}_hist{history_index}"
                 st.plotly_chart(fig, use_container_width=True, key=unique_key)
 
 
@@ -1049,23 +893,23 @@ def main():
         if st.session_state.chat_history:
             st.markdown("### 💭 Historique des Analyses")
             
-            for i, chat in enumerate(reversed(st.session_state.chat_history[-5:])):
-                # Message utilisateur
-                st.markdown(f"""
-                <div class="chat-container">
-                    <div class="user-message">
-                        <strong>🙋‍♂️ Vous ({chat['timestamp']}):</strong><br>
-                        {chat['question']}
-                    </div>
+        for idx, chat in enumerate(reversed(st.session_state.chat_history[-5:])):
+            # Message utilisateur
+            st.markdown(f"""
+            <div class="chat-container">
+                <div class="user-message">
+                    <strong>🙋‍♂️ Vous ({chat['timestamp']}):</strong><br>
+                    {chat['question']}
                 </div>
-                """, unsafe_allow_html=True)
-                
-                # Réponse de l'agent
-                display_agent_response(
-                    chat['agent'], 
-                    chat['response'], 
-                    chat.get('visualizations', [])
-                )
+            </div>
+            """, unsafe_allow_html=True)
+            # Réponse de l'agent
+            display_agent_response(
+                chat['agent'], 
+                chat['response'], 
+                chat.get('visualizations', []),
+                history_index=idx
+            )
         
         st.markdown('</div>', unsafe_allow_html=True)
         
@@ -1176,4 +1020,4 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 if __name__ == "__main__":
-    main() 
+    main()

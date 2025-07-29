@@ -5,7 +5,9 @@ pandas
 matplotlib
 python-dotenv
 langchain
-langchain_community
+langchain-openai
+langchain-experimental
+langchain-community
 openpyxl
 tabulate
 plotly
