@@ -1,0 +1,11 @@
+uv
+streamlit
+openai
+pandas
+matplotlib
+python-dotenv
+langchain
+langchain_community
+openpyxl
+tabulate
+plotly
