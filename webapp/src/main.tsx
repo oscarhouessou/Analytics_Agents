@@ -1,14 +1,19 @@
-import React from 'react';
-import ReactDOM from 'react-dom/client';
-import './index.css';
-import App from './AppRouter';
+import React from 'react'
+import { createRoot } from 'react-dom/client'
+import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import Home from './pages/Home'
+import ProfilingPage from './pages/profiling'
+import Landing from './pages/Landing'
+import './index.css'
 
-const rootElement = document.getElementById('root');
-if (!rootElement) {
-  throw new Error("Impossible de trouver l'élément #root dans le HTML.");
-}
-ReactDOM.createRoot(rootElement).render(
+createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <App />
-  </React.StrictMode>
-);
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<Landing />} />
+        <Route path="/home" element={<Home />} />
+        <Route path="/profiling" element={<ProfilingPage />} />
+      </Routes>
+    </BrowserRouter>
+  </React.StrictMode>,
+)

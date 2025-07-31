@@ -1,8 +1,8 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
   content: [
-    "./index.html",
-    "./src/**/*.{js,ts,jsx,tsx}"
+    './index.html',
+    './src/**/*.{js,ts,jsx,tsx}',
   ],
   theme: {
     extend: {
@@ -14,9 +14,9 @@ module.exports = {
         agentSupervisor: '#ef4444',
       },
       fontFamily: {
-        sans: ["Inter", "ui-sans-serif", "system-ui"],
+        sans: ['Inter', 'ui-sans-serif', 'system-ui'],
       },
     },
   },
-  plugins: [],
-};
+  plugins: [require('@headlessui/tailwindcss')],
+}

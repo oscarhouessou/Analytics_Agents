@@ -1,0 +1,75 @@
+/* App global styles for Analytics Pro */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap');
+
+.app-bg {
+  min-height: 100vh;
+  background: linear-gradient(120deg, #f8fafc 0%, #e0e7ef 100%);
+  transition: background 0.2s;
+}
+
+@media (prefers-color-scheme: dark) {
+  .app-bg {
+    background: linear-gradient(120deg, #0f172a 0%, #1e293b 100%);
+  }
+}
+
+/* Card-based layout spacing */
+.card-grid {
+  display: grid;
+  gap: 2rem;
+  grid-template-columns: 1fr;
+}
+@media (min-width: 1024px) {
+  .card-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* Sidebar styles */
+.sidebar {
+  background: #fff;
+  border-right: 1px solid #e5e7eb;
+  min-width: 220px;
+  transition: background 0.2s;
+  height: 100vh;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+@media (prefers-color-scheme: dark) {
+  .sidebar {
+    background: #111827;
+    border-right: 1px solid #1e293b;
+  }
+}
+
+/* Header styles */
+.header {
+  background: transparent;
+  padding: 1rem 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid #e5e7eb;
+}
+@media (prefers-color-scheme: dark) {
+  .header {
+    border-bottom: 1px solid #1e293b;
+  }
+}
+
+/* Utility for agent color borders */
+.border-profiling { border-color: var(--color-profiling); }
+.border-statistical { border-color: var(--color-statistical); }
+.border-visualization { border-color: var(--color-visualization); }
+.border-transformation { border-color: var(--color-transformation); }
+.border-supervisor { border-color: var(--color-supervisor); }
+
+/* Animations (Framer Motion ready) */
+.fade-in {
+  animation: fadeIn 0.5s cubic-bezier(0.4,0,0.2,1);
+}
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: none; }
+}

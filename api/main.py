@@ -15,6 +15,7 @@ from langchain_experimental.agents import create_pandas_dataframe_agent
 from langchain.agents.agent_types import AgentType
 import tempfile
 
+
 app = FastAPI(title="AnalyticsPro Multi-Agent API")
 
 app.add_middleware(
@@ -75,6 +76,7 @@ def classify_intent(question: str) -> str:
         return "transformation"
     return "profiling"
 
+
 # --- ROUTES ---
 @app.post("/analyze/")
 async def analyze(
@@ -103,6 +105,65 @@ async def analyze(
     agent = BaseAgent(df, openai_api_key, prompt)
     result = agent.run(question)
     return {"agent": intent, "response": result}
+
+# --- Résumé du dataset (dashboard) ---
+@app.post("/dataset/summary")
+async def dataset_summary(file: UploadFile = File(...)):
+    try:
+        suffix = os.path.splitext(file.filename)[-1].lower()
+        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+            tmp.write(await file.read())
+            tmp_path = tmp.name
+        if suffix == ".csv":
+            df = pd.read_csv(tmp_path)
+        else:
+            df = pd.read_excel(tmp_path)
+        os.unlink(tmp_path)
+    except Exception as e:
+        return JSONResponse(status_code=400, content={"error": f"Erreur de lecture du fichier: {str(e)}"})
+    summary = {
+        "n_rows": int(df.shape[0]),
+        "n_cols": int(df.shape[1]),
+        "columns": list(df.columns),
+        "dtypes": {col: str(dtype) for col, dtype in df.dtypes.items()},
+        "missing": {col: int(df[col].isnull().sum()) for col in df.columns},
+        "sample": df.head(10).to_dict(orient="records")
+    }
+    return summary
+
+# --- Visualisation structurée (exemple: histogramme) ---
+@app.post("/visualize/")
+async def visualize(
+    file: UploadFile = File(...),
+    column: str = Form(...),
+    chart_type: str = Form("histogram")
+):
+    try:
+        suffix = os.path.splitext(file.filename)[-1].lower()
+        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+            tmp.write(await file.read())
+            tmp_path = tmp.name
+        if suffix == ".csv":
+            df = pd.read_csv(tmp_path)
+        else:
+            df = pd.read_excel(tmp_path)
+        os.unlink(tmp_path)
+    except Exception as e:
+        return JSONResponse(status_code=400, content={"error": f"Erreur de lecture du fichier: {str(e)}"})
+    if chart_type == "histogram":
+        try:
+            data = df[column].dropna().tolist()
+            import numpy as np
+            hist, bin_edges = np.histogram(data, bins=20)
+            return {
+                "type": "histogram",
+                "column": column,
+                "bins": bin_edges.tolist(),
+                "counts": hist.tolist()
+            }
+        except Exception as e:
+            return JSONResponse(status_code=400, content={"error": f"Erreur histogramme: {str(e)}"})
+    return JSONResponse(status_code=400, content={"error": "Type de graphique non supporté."})
 
 @app.get("/")
 def root():
